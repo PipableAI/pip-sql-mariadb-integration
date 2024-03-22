@@ -1,4 +1,4 @@
-from pip_library_parser.main import (
+from pip_sql_performance_schema.main import (
     PipSQLPerformanceSchema
 )
 
