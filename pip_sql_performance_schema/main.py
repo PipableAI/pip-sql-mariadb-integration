@@ -32,7 +32,7 @@ class PipSQLPerformanceSchema:
         print("Loading Models...")
         self.embed_tokenizer = AutoTokenizer.from_pretrained(embed_model_id, trust_remote_code=True)
         self.sql_tokenizer = AutoTokenizer.from_pretrained(sql_model_id)
-        self.sql_model = AutoModelForCausalLM.from_pretrained(sql_model_id).to(device)
+        self.sql_model = AutoModelForCausalLM.from_pretrained(sql_model_id, torch_dtype=torch.bfloat16).to(device)
         self.embed_model = AutoModel.from_pretrained(embed_model_id, trust_remote_code=True)
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.prompt_path = os.path.join(self.script_dir, "data")
@@ -131,4 +131,8 @@ class PipSQLPerformanceSchema:
         inputs = self.sql_tokenizer(prompt, return_tensors="pt").to("cuda")
         outputs = self.sql_model.generate(**inputs, max_new_tokens=500)
         output = self.sql_tokenizer.decode(outputs[0])
+        del inputs
+        del outputs
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
         return output.split('<sql>')[1].split('</sql>')[0].strip()
