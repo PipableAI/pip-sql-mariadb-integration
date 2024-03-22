@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import pandas as pd
 import pymysql
 import huggingface_hub as hf_hub
+import os
 
 class PipSQLPerformanceSchema:
 
@@ -15,9 +16,9 @@ class PipSQLPerformanceSchema:
                  sql_model_id="PipableAI/pipSQL-mariadb-performance-schema-1.3b", 
                  device="cuda", 
                  hf_token="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",
-                 sql_host="localhost",
-                 sql_user="root",
-                 sql_password="password"
+                 sql_host="20.163.176.230",
+                 sql_user="stan",
+                 sql_password="123456",
                  ):
         self.embed_model_id = embed_model_id
         self.sql_model_id = sql_model_id
@@ -33,14 +34,20 @@ class PipSQLPerformanceSchema:
         self.sql_tokenizer = AutoTokenizer.from_pretrained(sql_model_id)
         self.sql_model = AutoModelForCausalLM.from_pretrained(sql_model_id).to(device)
         self.embed_model = AutoModel.from_pretrained(embed_model_id, trust_remote_code=True)
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.prompt_path = os.path.join(self.script_dir, "data")
+        self.maria_db_performance_schema_json_path = os.path.join(self.prompt_path, "mariadb_performance_schema.json")
+        self.table_embeddings_path = os.path.join(self.prompt_path, "table_embeddings.pkl")
+        self.maria_db_ddls_path = os.path.join(self.prompt_path, "maria_db_ddls.json")
 
-        with open("./mariadb_performance_schema.json", "r") as f:
+
+        with open(self.maria_db_performance_schema_json_path, "r") as f:
             self.performance_schema = json.loads(f.read())
 
-        with open("./table_embeddings.pkl", "rb") as f:
+        with open(self.table_embeddings_path, "rb") as f:
             self.table_embeddings = pickle.load(f)
 
-        with open("./maria_db_ddls.json", "r") as f:
+        with open(self.maria_db_ddls_path, "r") as f:
             self.maria_db_performance_schema_ddls = json.loads(f.read())
         
     def execute_query(self, query):

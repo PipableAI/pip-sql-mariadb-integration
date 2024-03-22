@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="UTF-8") as f:
     long_description = f.read()
 
 setup(
-    name="pip-sql-performance-schema",
+    name="pip_sql_performance_schema",
     version=__version__,
     packages=find_packages(),
     long_description=long_description,
@@ -17,4 +17,7 @@ setup(
         "pymysql",
         "huggingface_hub"
     ],
+    package_data={
+        "pip_sql_performance_schema": ["data/*"],
+    },
 )
