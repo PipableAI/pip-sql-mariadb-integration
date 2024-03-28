@@ -3,3 +3,4 @@ pandas
 transformers
 pymysql
 huggingface_hub
+FlagEmmbedding

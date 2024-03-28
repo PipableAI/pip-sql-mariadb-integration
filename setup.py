@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="UTF-8") as f:
     long_description = f.read()
 
 setup(
-    name="pip_sql_performance_schema",
+    name="pip_sql_mariadb_integration",
     version=__version__,
     packages=find_packages(),
     long_description=long_description,
@@ -15,9 +15,10 @@ setup(
         "transformers",
         "torch",
         "pymysql",
-        "huggingface_hub"
+        "huggingface_hub",
+        "FlagEmbedding",
     ],
     package_data={
-        "pip_sql_performance_schema": ["data/*"],
+        "pip_sql_mariadb_integration": ["data/*"],
     },
 )

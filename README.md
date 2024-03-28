@@ -1,1 +1,1 @@
-# pip-sql-performance-schema
+# pip-sql-mariadb-integration
