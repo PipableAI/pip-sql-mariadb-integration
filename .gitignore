@@ -49,3 +49,5 @@ logs/
 
 # Ignore your editor's temporary/backup files
 *~
+
+*.sql

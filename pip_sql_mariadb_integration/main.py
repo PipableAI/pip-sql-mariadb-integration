@@ -1,14 +1,12 @@
 import json
 from pprint import pprint
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from FlagEmbedding import BGEM3FlagModel
 import pickle
 import torch
 import torch.nn.functional as F
 import pandas as pd
 import pymysql
-import huggingface_hub as hf_hub
 import os
+import requests
 
 class PipSQLMariaDBIntegration:
 
@@ -20,6 +18,7 @@ class PipSQLMariaDBIntegration:
                  sql_host="20.163.176.230",
                  sql_user="stan",
                  sql_password="123456",
+                 model_inference_url="http://172.178.123.207:3100/infer"
                  ):
         self.embed_model_id = embed_model_id
         self.sql_model_id = sql_model_id
@@ -28,11 +27,8 @@ class PipSQLMariaDBIntegration:
         self.sql_host = sql_host
         self.sql_user = sql_user
         self.sql_password = sql_password
+        self.model_inference_url = model_inference_url
 
-        hf_hub.login(hf_token)
-        print("Loading Models...")
-        self.sql_tokenizer = AutoTokenizer.from_pretrained(sql_model_id)
-        self.sql_model = AutoModelForCausalLM.from_pretrained(sql_model_id).to(device)
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.prompt_path = os.path.join(self.script_dir, "data")
         self.performance_schema_json_path = os.path.join(self.prompt_path, "performance_schema.json")
@@ -41,7 +37,6 @@ class PipSQLMariaDBIntegration:
         self.information_schema_json_path = os.path.join(self.prompt_path, "information_schema.json")
         self.information_schema_embeddings_path = os.path.join(self.prompt_path, "information_schema_embeddings.pkl")
         self.information_schema_ddls_path = os.path.join(self.prompt_path, "information_schema_ddls.json")
-        self.embed_model = BGEM3FlagModel(embed_model_id)
 
 
         with open(self.performance_schema_json_path, "r") as f:
@@ -82,15 +77,39 @@ class PipSQLMariaDBIntegration:
             return str(e)
         finally:
             connection.close()
-
-    def generate_embedding(self, input):
-        with torch.no_grad():
-            model_output = self.embed_model.encode(input)["dense_vecs"]
     
-        return torch.tensor(model_output)
+    def query_sql_model(self, prompt, max_new_tokens=250):
+        payload = {
+                "model_name": self.sql_model_id,
+                "prompt": prompt,
+                "max_new_tokens": max_new_tokens,
+            }
+        response = requests.request(
+            method="POST", url=self.model_inference_url, data=payload, timeout=120
+        )
+        if response.status_code == 200:
+            return json.loads(response.text)["response"]
+        else:
+            raise Exception(f"Error generating response using {self.url}.")
+    
+    def query_embed_model(self, prompt):
+        payload = {
+                "model_name": self.embed_model_id,
+                "prompt": prompt,
+                "model_type": "embed"
+            }
+        response = requests.request(
+            method="POST", url=self.model_inference_url, data=payload, timeout=120
+        )
+        if response.status_code == 200:
+            res = json.loads(json.loads(response.text)['response'])
+            return torch.tensor(res)
+        else:
+            raise Exception(f"Error generating response using {self.url}.")
 
-    def get_table_score(self, input, table, embeddings):
-        input_embedding = self.generate_embedding(input).unsqueeze(0)
+
+    def get_table_score(self, input_embedding, table, embeddings):
+        input_embedding = input_embedding.unsqueeze(0)
         ddl_embedding = embeddings[table]['ddl_embedding'].unsqueeze(0)
 
         table_similarity = F.cosine_similarity(input_embedding, ddl_embedding, dim=1)
@@ -121,7 +140,8 @@ class PipSQLMariaDBIntegration:
         return chosen_tables[:10]
     
     def ask_pip_performance_schema(self, question, print_table=False):
-        table_scores = table_scores = {table: self.get_table_score(question, table, self.performance_schema_embeddings) for table in self.performance_schema.keys()}
+        input_embedding = self.query_embed_model(question)
+        table_scores = {table: self.get_table_score(input_embedding, table, self.performance_schema_embeddings) for table in self.performance_schema.keys()}
         table_scores = sorted(table_scores.items(), key=lambda x: x[1], reverse=True)
         chosen_tables = self.choose_tables(table_scores)
         if print_table:
@@ -154,17 +174,13 @@ class PipSQLMariaDBIntegration:
 </question>
 <sql>
     """
-        inputs = self.sql_tokenizer(prompt, return_tensors="pt").to("cuda")
-        outputs = self.sql_model.generate(**inputs, max_new_tokens=500)
-        output = self.sql_tokenizer.decode(outputs[0])
-        del inputs
-        del outputs
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
+        max_new_tokens = 500
+        output = self.query_sql_model(prompt, max_new_tokens)
         return output.split('<sql>')[1].split('</sql>')[0].strip()
     
     def ask_pip_information_schema(self, question, print_table=False):
-        table_scores = {table: self.get_table_score(question, table, self.information_schema_embeddings) for table in self.information_schema.keys()}
+        input_embedding = self.query_embed_model(question)
+        table_scores = {table: self.get_table_score(input_embedding, table, self.information_schema_embeddings) for table in self.information_schema.keys()}
         table_scores = sorted(table_scores.items(), key=lambda x: x[1], reverse=True)
         chosen_tables = self.choose_tables(table_scores)
         if print_table:
@@ -193,12 +209,6 @@ class PipSQLMariaDBIntegration:
 </question>
 <sql>
 """     
-        inputs = self.sql_tokenizer(prompt, return_tensors="pt").to("cuda")
-        outputs = self.sql_model.generate(**inputs, max_new_tokens=500)
-        output = self.sql_tokenizer.decode(outputs[0])
-        del inputs
-        del outputs
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
+        max_new_tokens = 500
+        output = self.query_sql_model(prompt, max_new_tokens)
         return output.split('<sql>')[1].split('</sql>')[0].strip()
-    
