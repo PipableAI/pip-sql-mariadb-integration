@@ -18,7 +18,7 @@ class PipSQLMariaDBIntegration:
                  sql_host="20.163.176.230",
                  sql_user="stan",
                  sql_password="123456",
-                 model_inference_url="http://playground.pipable.ai/infer"
+                 model_inference_url="https://playground.pipable.ai/infer"
                  ):
         self.embed_model_id = embed_model_id
         self.sql_model_id = sql_model_id
