@@ -18,7 +18,7 @@ class PipSQLMariaDBIntegration:
                  sql_host="20.163.176.230",
                  sql_user="stan",
                  sql_password="123456",
-                 model_inference_url="http://172.178.123.207:3100/infer"
+                 model_inference_url="http://playground.pipable.ai/infer"
                  ):
         self.embed_model_id = embed_model_id
         self.sql_model_id = sql_model_id
@@ -90,7 +90,7 @@ class PipSQLMariaDBIntegration:
         if response.status_code == 200:
             return json.loads(response.text)["response"]
         else:
-            raise Exception(f"Error generating response using {self.url}.")
+            raise Exception(f"Error generating response using {self.model_inference_url}.")
     
     def query_embed_model(self, prompt):
         payload = {
@@ -105,7 +105,7 @@ class PipSQLMariaDBIntegration:
             res = json.loads(json.loads(response.text)['response'])
             return torch.tensor(res)
         else:
-            raise Exception(f"Error generating response using {self.url}.")
+            raise Exception(f"Error generating response using {self.model_inference_url}.")
 
 
     def get_table_score(self, input_embedding, table, embeddings):
